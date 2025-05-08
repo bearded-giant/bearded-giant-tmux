@@ -1,0 +1,19 @@
+# NOTE: you can use vars with $<var> and ${<var>} as long as the str is double quoted: ""
+# WARNING: hex colors can't contain capital letters
+
+# --> Bearded Giant (Dark) - Kanso Zen Theme
+thm_bg="#131620"
+thm_fg="#c5c9c7"
+thm_cyan="#7aa89f"
+thm_black="#090e13"
+thm_gray="#24262d"
+thm_magenta="#938aa9"
+thm_pink="#a292a3"
+thm_red="#e46876"
+thm_green="#87a987"
+thm_yellow="#e6c384"
+thm_blue="#7fb4ca"
+thm_orange="#c4b28a"
+thm_black4="#a4a7a4"
+thm_peach="#c4746e"
+thm_purple="#6b189d"
