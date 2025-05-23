@@ -193,15 +193,13 @@ process_meeting() {
     echo "${status_color}|${output}"
 }
 
-show_meetings() {
+format_meeting_output() {
     local index=$1
+    local result=$2
     local icon
     local color
-    local result
     local text
     local module
-
-    result=$(get_meeting_status)
 
     meeting_color=$(echo "$result" | cut -d'|' -f1)
     meeting_text=$(echo "$result" | cut -d'|' -f2-)
@@ -232,7 +230,31 @@ show_meetings() {
     echo "$module"
 }
 
+show_meetings() {
+    local index=$1
+    
+    # Create a command that tmux will execute dynamically
+    local script_path="${PLUGIN_DIR}/status/meetings.sh"
+    echo "#(${script_path} format ${index})"
+}
+
 # If script is run directly (not sourced), output the meeting status
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    get_meeting_status
+    # Get the plugin directory
+    PLUGIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+    
+    # Source the theme file for colors
+    source "${PLUGIN_DIR}/bearded-giant-dark.tmuxtheme"
+    
+    # Source the build_status_module function from main script
+    source "${PLUGIN_DIR}/bearded-giant.tmux"
+    
+    if [[ "$1" == "format" && -n "$2" ]]; then
+        # Called from tmux to format the output
+        result=$(get_meeting_status)
+        format_meeting_output "$2" "$result"
+    else
+        # Called directly for testing
+        get_meeting_status
+    fi
 fi

@@ -276,6 +276,7 @@ main() {
   set status-justify "left"
   set status-left-length "100"
   set status-right-length "100"
+  set status-interval "5"
 
   # messages
   set message-style "fg=${thm_fg},bg=${thm_purple},align=centre"
