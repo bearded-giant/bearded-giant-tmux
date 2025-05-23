@@ -27,6 +27,9 @@ get_meeting_status() {
 
     # Parse meetings - format is: time_range on one line, then title (indented) on next line
     time_range=""
+    local upcoming_meetings=()
+    local first_meeting=""
+
     while IFS= read -r line; do
         [[ "$line" == "today:" || "$line" == "------------------------" ]] && continue
 
@@ -43,8 +46,10 @@ get_meeting_status() {
             # Process this meeting
             result=$(process_meeting "$time_range" "$title")
             if [[ -n "$result" ]]; then
-                echo "$result"
-                return
+                upcoming_meetings+=("$result")
+                if [[ -z "$first_meeting" ]]; then
+                    first_meeting="$result"
+                fi
             fi
 
             # Reset for next meeting
@@ -52,8 +57,17 @@ get_meeting_status() {
         fi
     done <<<"$meetings"
 
-    # If we get here, no meetings were found in the time window
-    echo "blue|$FREE_TIME_MESSAGE"
+    # Check if we have any upcoming meetings
+    if [[ ${#upcoming_meetings[@]} -eq 0 ]]; then
+        echo "blue|$FREE_TIME_MESSAGE"
+    elif [[ ${#upcoming_meetings[@]} -eq 1 ]]; then
+        echo "$first_meeting"
+    else
+        # Multiple meetings - add indicator to first meeting
+        meeting_color=$(echo "$first_meeting" | cut -d'|' -f1)
+        meeting_text=$(echo "$first_meeting" | cut -d'|' -f2-)
+        echo "${meeting_color}|${meeting_text} (+$((${#upcoming_meetings[@]} - 1)) more)"
+    fi
 }
 
 process_meeting() {
@@ -113,13 +127,16 @@ process_meeting() {
         output="$NERD_FONT_MEETING ${hours}h ${mins}m - $title"
         status_color="blue"
     elif ((minutes_till_meeting >= 30)); then
-        output="$NERD_FONT_MEETING $minutes_till_meeting min - $title (soon)"
+        output="$NERD_FONT_MEETING $minutes_till_meeting min - $title"
+        status_color="blue"
+    elif ((minutes_till_meeting > 15)); then
+        output="$NERD_FONT_MEETING In $minutes_till_meeting min - $title"
         status_color="yellow"
-    elif ((minutes_till_meeting >= 5)); then
+    elif ((minutes_till_meeting > 5)); then
         output="$NERD_FONT_MEETING In $minutes_till_meeting min - $title"
         status_color="orange"
     else
-        output="$NERD_FONT_MEETING Starting soon: $title"
+        output="$NERD_FONT_MEETING $title starting soon!"
         status_color="red"
     fi
 
@@ -170,4 +187,3 @@ show_meetings() {
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     get_meeting_status
 fi
-
