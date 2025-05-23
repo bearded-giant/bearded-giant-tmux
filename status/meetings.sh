@@ -28,7 +28,13 @@ get_meeting_status() {
     # Parse meetings - format is: time_range on one line, then title (indented) on next line
     time_range=""
     local upcoming_meetings=()
+    local meeting_times=()
     local first_meeting=""
+    local first_meeting_start=""
+    local first_meeting_end=""
+    local first_meeting_start_epoch=""
+    local first_meeting_end_epoch=""
+    local overlapping_count=0
 
     while IFS= read -r line; do
         [[ "$line" == "today:" || "$line" == "------------------------" ]] && continue
@@ -47,8 +53,34 @@ get_meeting_status() {
             result=$(process_meeting "$time_range" "$title")
             if [[ -n "$result" ]]; then
                 upcoming_meetings+=("$result")
+                meeting_times+=("$time_range")
+                
                 if [[ -z "$first_meeting" ]]; then
                     first_meeting="$result"
+                    first_meeting_start=$(echo "$time_range" | awk -F ' - ' '{print $1}' | sed 's/[[:space:]]/ /g' | xargs)
+                    first_meeting_end=$(echo "$time_range" | awk -F ' - ' '{print $2}' | sed 's/[[:space:]]/ /g' | xargs)
+                    
+                    # Convert to epoch for overlap checking
+                    today_date=$(date +"%Y-%m-%d")
+                    first_meeting_start_epoch=$(date -j -f "%Y-%m-%d %l:%M %p" "$today_date $first_meeting_start" +%s 2>/dev/null)
+                    first_meeting_end_epoch=$(date -j -f "%Y-%m-%d %l:%M %p" "$today_date $first_meeting_end" +%s 2>/dev/null)
+                else
+                    # Check if this meeting overlaps with the first one
+                    current_start=$(echo "$time_range" | awk -F ' - ' '{print $1}' | sed 's/[[:space:]]/ /g' | xargs)
+                    current_end=$(echo "$time_range" | awk -F ' - ' '{print $2}' | sed 's/[[:space:]]/ /g' | xargs)
+                    
+                    # Convert to epoch for comparison
+                    current_start_epoch=$(date -j -f "%Y-%m-%d %l:%M %p" "$today_date $current_start" +%s 2>/dev/null)
+                    current_end_epoch=$(date -j -f "%Y-%m-%d %l:%M %p" "$today_date $current_end" +%s 2>/dev/null)
+                    
+                    # Check for actual overlap: start1 < end2 AND start2 < end1
+                    if [[ -n "$current_start_epoch" && -n "$current_end_epoch" && 
+                          -n "$first_meeting_start_epoch" && -n "$first_meeting_end_epoch" ]]; then
+                        if [[ $first_meeting_start_epoch -lt $current_end_epoch && 
+                              $current_start_epoch -lt $first_meeting_end_epoch ]]; then
+                            overlapping_count=$((overlapping_count + 1))
+                        fi
+                    fi
                 fi
             fi
 
@@ -63,10 +95,16 @@ get_meeting_status() {
     elif [[ ${#upcoming_meetings[@]} -eq 1 ]]; then
         echo "$first_meeting"
     else
-        # Multiple meetings - add indicator to first meeting
+        # Multiple meetings - show count
         meeting_color=$(echo "$first_meeting" | cut -d'|' -f1)
         meeting_text=$(echo "$first_meeting" | cut -d'|' -f2-)
-        echo "${meeting_color}|${meeting_text} (+$((${#upcoming_meetings[@]} - 1)) more)"
+        
+        if [[ $overlapping_count -gt 0 ]]; then
+            echo "${meeting_color}|${meeting_text} (+${overlapping_count} overlap)"
+        else
+            # Show total count of additional meetings
+            echo "${meeting_color}|${meeting_text} (+$((${#upcoming_meetings[@]} - 1)) more)"
+        fi
     fi
 }
 
