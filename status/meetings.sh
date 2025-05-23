@@ -137,12 +137,13 @@ process_meeting() {
         return
     fi
 
-    if ((epoc_now >= epoc_meeting)); then
-        return
-    fi
-
     epoc_diff=$((epoc_meeting - epoc_now))
     minutes_till_meeting=$((epoc_diff / 60))
+    
+    # Include meetings that started up to 5 minutes ago
+    if ((epoc_diff < -300)); then  # More than 5 minutes past start
+        return
+    fi
 
     if ((minutes_till_meeting > ALERT_IF_IN_NEXT_MINUTES)); then
         return
@@ -159,7 +160,14 @@ process_meeting() {
     # Default
     status_color="blue"
 
-    if ((minutes_till_meeting >= 60)); then
+    if ((minutes_till_meeting < -5)); then
+        # Should not reach here due to earlier filter, but just in case
+        return
+    elif ((minutes_till_meeting < 0)); then
+        # Meeting started within last 5 minutes
+        output="$NERD_FONT_MEETING STARTED: $title"
+        status_color="red"
+    elif ((minutes_till_meeting >= 60)); then
         hours=$((minutes_till_meeting / 60))
         mins=$((minutes_till_meeting % 60))
         output="$NERD_FONT_MEETING ${hours}h ${mins}m - $title"
@@ -173,6 +181,9 @@ process_meeting() {
     elif ((minutes_till_meeting > 5)); then
         output="$NERD_FONT_MEETING In $minutes_till_meeting min - $title"
         status_color="orange"
+    elif ((minutes_till_meeting > 2)); then
+        output="$NERD_FONT_MEETING In $minutes_till_meeting min - $title"
+        status_color="red"
     else
         output="$NERD_FONT_MEETING $title starting soon!"
         status_color="red"

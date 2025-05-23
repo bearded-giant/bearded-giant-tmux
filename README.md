@@ -315,21 +315,50 @@ Look into custom/README.md for more details.
 
 Any file added to the custom folder will be preserved when updating the theme.
 
-## Meetings Module
+## Status Modules
 
-The meetings module integrates with your calendar to show upcoming meetings:
+### Meetings Module
+
+The meetings module integrates with macOS Calendar (via icalBuddy) to show upcoming meetings with intelligent time-based warnings.
 
 ```sh
 set -g @bearded_giant_status_modules_right "meetings application session"
 ```
 
-### Calendar Colors
+#### Time-based Color Coding
 
-- **≥60 minutes**: Blue - Shows as "Xh Ym - title"
-- **30-59 minutes**: Yellow - Shows as "X min - title (soon)"
-- **5-29 minutes**: Orange - Shows as "In X min - title"
-- **<5 minutes**: Red - Shows as "Starting soon: title"
-- **No meetings**: Blue - Shows "Free" message
+- **-5 to 0 minutes**: Red - "STARTED: [title]" (grace period for recently started meetings)
+- **0 to 2 minutes**: Red - "[title] starting soon!"
+- **2 to 5 minutes**: Red - "In X min - [title]"
+- **5 to 15 minutes**: Orange - "In X min - [title]"
+- **15 to 30 minutes**: Yellow - "In X min - [title]"
+- **30+ minutes**: Blue - "X min - [title]" or "Xh Ym - [title]"
+- **No meetings**: Blue - Shows "Free" with 👍 icon
+
+#### Meeting Detection Logic
+
+- Only shows meetings within the next 90 minutes
+- Filters out currently active meetings (except those that started within last 5 minutes)
+- Shows "+X more" when multiple meetings are scheduled
+- Shows "+X overlap" when meetings have overlapping time ranges
+- Truncates long meeting titles to 20 characters
+
+#### Configuration
+
+Exclude specific meeting patterns:
+```sh
+export BG_EXCLUDE_PATTERNS=("Lunch" "Break" "Personal")
+```
+
+#### Icons
+
+- Free time: 👍
+- Meetings: 👎 (or 📅 when using different icon set)
+
+#### Requirements
+
+- macOS with icalBuddy installed
+- Access to Calendar app data
 
 ## Configuration Examples
 
