@@ -163,8 +163,7 @@ show_meetings() {
         # icon="☕"
         icon="👍"
     else
-        # icon="📅"
-        icon="👎"
+        icon="📅"
     fi
 
     case "$meeting_color" in
