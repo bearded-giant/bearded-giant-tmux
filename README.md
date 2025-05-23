@@ -327,7 +327,7 @@ set -g @bearded_giant_status_modules_right "meetings application session"
 
 #### Time-based Color Coding
 
-- **-5 to 0 minutes**: Red - "STARTED: [title]" (grace period for recently started meetings)
+- **-5 to 0 minutes**: Red - "STARTED Xm ago: [title]" (shows how late you are)
 - **0 to 2 minutes**: Red - "[title] starting soon!"
 - **2 to 5 minutes**: Red - "In X min - [title]"
 - **5 to 15 minutes**: Orange - "In X min - [title]"

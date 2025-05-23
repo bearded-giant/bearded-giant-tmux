@@ -165,7 +165,8 @@ process_meeting() {
         return
     elif ((minutes_till_meeting < 0)); then
         # Meeting started within last 5 minutes
-        output="$NERD_FONT_MEETING STARTED: $title"
+        minutes_late=$(( -minutes_till_meeting ))
+        output="$NERD_FONT_MEETING STARTED ${minutes_late}m ago: $title"
         status_color="red"
     elif ((minutes_till_meeting >= 60)); then
         hours=$((minutes_till_meeting / 60))
