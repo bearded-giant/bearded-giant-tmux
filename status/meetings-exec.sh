@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# This is a standalone executable version of the meetings module
+# It outputs pre-formatted text that tmux can display directly
+
 ALERT_IF_IN_NEXT_MINUTES=90
 NERD_FONT_FREE=""
 NERD_FONT_MEETING=""
@@ -52,13 +55,17 @@ get_meeting_status() {
             # Process this meeting
             result=$(process_meeting "$time_range" "$title")
             if [[ -n "$result" ]]; then
+                # Extract the start time from the time range
+                current_start=$(echo "$time_range" | awk -F ' - ' '{print $1}' | sed 's/[[:space:]]/ /g' | xargs)
+                current_end=$(echo "$time_range" | awk -F ' - ' '{print $2}' | sed 's/[[:space:]]/ /g' | xargs)
+                
                 upcoming_meetings+=("$result")
                 meeting_times+=("$time_range")
                 
                 if [[ -z "$first_meeting" ]]; then
                     first_meeting="$result"
-                    first_meeting_start=$(echo "$time_range" | awk -F ' - ' '{print $1}' | sed 's/[[:space:]]/ /g' | xargs)
-                    first_meeting_end=$(echo "$time_range" | awk -F ' - ' '{print $2}' | sed 's/[[:space:]]/ /g' | xargs)
+                    first_meeting_start="$current_start"
+                    first_meeting_end="$current_end"
                     
                     # Convert to epoch for overlap checking
                     today_date=$(date +"%Y-%m-%d")
@@ -66,9 +73,6 @@ get_meeting_status() {
                     first_meeting_end_epoch=$(date -j -f "%Y-%m-%d %l:%M %p" "$today_date $first_meeting_end" +%s 2>/dev/null)
                 else
                     # Check if this meeting overlaps with the first one
-                    current_start=$(echo "$time_range" | awk -F ' - ' '{print $1}' | sed 's/[[:space:]]/ /g' | xargs)
-                    current_end=$(echo "$time_range" | awk -F ' - ' '{print $2}' | sed 's/[[:space:]]/ /g' | xargs)
-                    
                     # Convert to epoch for comparison
                     current_start_epoch=$(date -j -f "%Y-%m-%d %l:%M %p" "$today_date $current_start" +%s 2>/dev/null)
                     current_end_epoch=$(date -j -f "%Y-%m-%d %l:%M %p" "$today_date $current_end" +%s 2>/dev/null)
@@ -91,19 +95,19 @@ get_meeting_status() {
 
     # Check if we have any upcoming meetings
     if [[ ${#upcoming_meetings[@]} -eq 0 ]]; then
-        echo "blue|$FREE_TIME_MESSAGE"
+        echo "$FREE_TIME_MESSAGE"
     elif [[ ${#upcoming_meetings[@]} -eq 1 ]]; then
-        echo "$first_meeting"
+        # Extract just the text part
+        echo "$first_meeting" | cut -d'|' -f2-
     else
         # Multiple meetings - show count
-        meeting_color=$(echo "$first_meeting" | cut -d'|' -f1)
         meeting_text=$(echo "$first_meeting" | cut -d'|' -f2-)
         
         if [[ $overlapping_count -gt 0 ]]; then
-            echo "${meeting_color}|${meeting_text} (+${overlapping_count} overlap)"
+            echo "${meeting_text} (+${overlapping_count} overlap)"
         else
             # Show total count of additional meetings
-            echo "${meeting_color}|${meeting_text} (+$((${#upcoming_meetings[@]} - 1)) more)"
+            echo "${meeting_text} (+$((${#upcoming_meetings[@]} - 1)) more)"
         fi
     fi
 }
@@ -193,81 +197,5 @@ process_meeting() {
     echo "${status_color}|${output}"
 }
 
-format_meeting_output() {
-    local index=$1
-    local result=$2
-    local icon
-    local color
-    local text
-    local module
-
-    meeting_color=$(echo "$result" | cut -d'|' -f1)
-    meeting_text=$(echo "$result" | cut -d'|' -f2-)
-
-    meeting_text_trimmed=$(echo "$meeting_text" | xargs)
-
-    # if [[ "${meeting_text_trimmed,,}" == *"free"* ]]; then
-    if [[ "$meeting_text_trimmed" == *"Free"* ]]; then
-        # icon="☕"
-        icon="👍"
-    else
-        icon="📅"
-    fi
-
-    case "$meeting_color" in
-    "blue") color="$thm_blue" ;;
-    "yellow") color="$thm_yellow" ;;
-    "orange") color="$thm_orange" ;;
-    "red") color="$thm_red" ;;
-    "purple") color="$thm_purple" ;;
-    *) color="$thm_blue" ;; # fallback
-    esac
-
-    text="  $meeting_text_trimmed  "
-
-    module=$(build_status_module "$index" "$icon" "$color" "$text")
-
-    echo "$module"
-}
-
-show_meetings() {
-    local index=$1
-    local icon
-    local color
-    local text
-    local module
-    
-    # Create a command that tmux will execute dynamically for the text
-    local script_path="${PLUGIN_DIR}/status/meetings-exec.sh"
-    text="#(${script_path})"
-    
-    # For now, use static colors/icons - we'll make this dynamic later
-    icon="📅"
-    color="$thm_blue"
-    
-    # Build the module with dynamic text
-    module=$(build_status_module "$index" "$icon" "$color" "  $text  ")
-    
-    echo "$module"
-}
-
-# If script is run directly (not sourced), output the meeting status
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    # Get the plugin directory
-    PLUGIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-    
-    # Source the theme file for colors
-    source "${PLUGIN_DIR}/bearded-giant-dark.tmuxtheme"
-    
-    # Source the build_status_module function from main script
-    source "${PLUGIN_DIR}/bearded-giant.tmux"
-    
-    if [[ "$1" == "format" && -n "$2" ]]; then
-        # Called from tmux to format the output
-        result=$(get_meeting_status)
-        format_meeting_output "$2" "$result"
-    else
-        # Called directly for testing
-        get_meeting_status
-    fi
-fi
+# Execute and output just the text
+get_meeting_status
