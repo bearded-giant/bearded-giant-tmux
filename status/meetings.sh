@@ -14,10 +14,9 @@ show_meetings() {
   meeting_text_trimmed=$(echo "$meeting_text" | xargs)
 
   if [ "$meeting_text_trimmed" = "Freedom" ]; then
-    icon="☕​"
+    icon="☕"
   else
-    # icon=""
-    icon="📹"
+    icon="📅"
   fi
 
   case "$meeting_color" in
