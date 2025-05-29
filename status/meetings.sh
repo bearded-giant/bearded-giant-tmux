@@ -7,7 +7,12 @@ NERD_FONT_MEETING=""
 
 FREE_TIME_MESSAGE="$NERD_FONT_FREE  Free  "
 
-EXCLUDE_PATTERNS=$BG_EXCLUDE_PATTERNS
+# Convert BG_EXCLUDE_PATTERNS string to array if it exists
+if [[ -n "$BG_EXCLUDE_PATTERNS" ]]; then
+    IFS=',' read -ra EXCLUDE_PATTERNS <<< "$BG_EXCLUDE_PATTERNS"
+else
+    EXCLUDE_PATTERNS=()
+fi
 
 get_all_meetings() {
     icalBuddy \
@@ -160,7 +165,10 @@ process_meeting() {
 
     skip=false
     for pattern in "${EXCLUDE_PATTERNS[@]}"; do
-        if [[ "$title" == $pattern ]]; then
+        # Support both exact match and wildcard patterns (case-insensitive)
+        pattern_lower=$(echo "$pattern" | tr '[:upper:]' '[:lower:]')
+        title_lower=$(echo "$title" | tr '[:upper:]' '[:lower:]')
+        if [[ "$title_lower" == "$pattern_lower" ]] || [[ "$title_lower" == *"$pattern_lower"* ]]; then
             skip=true
             break
         fi

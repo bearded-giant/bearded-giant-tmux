@@ -4,12 +4,18 @@
 # It outputs pre-formatted text that tmux can display directly
 
 ALERT_IF_IN_NEXT_MINUTES=90
+MAX_HOURS_TO_SHOW=4  # Don't show "next in" if meeting is more than 4 hours away
 NERD_FONT_FREE=""
 NERD_FONT_MEETING=""
 
 FREE_TIME_MESSAGE="$NERD_FONT_FREE  Free  "
 
-EXCLUDE_PATTERNS=$BG_EXCLUDE_PATTERNS
+# Convert BG_EXCLUDE_PATTERNS string to array if it exists
+if [[ -n "$BG_EXCLUDE_PATTERNS" ]]; then
+    IFS=',' read -ra EXCLUDE_PATTERNS <<< "$BG_EXCLUDE_PATTERNS"
+else
+    EXCLUDE_PATTERNS=()
+fi
 
 get_all_meetings() {
     icalBuddy \
@@ -25,6 +31,26 @@ get_all_meetings() {
         eventsToday
 }
 
+get_minutes_to_meeting() {
+    local time_range="$1"
+    local time=$(echo "$time_range" | awk -F ' - ' '{print $1}' | sed 's/[[:space:]]/ /g' | xargs)
+    local today_date=$(date +"%Y-%m-%d")
+    local datetime_str="$today_date $time"
+    local epoc_meeting=$(date -j -f "%Y-%m-%d %l:%M %p" "$datetime_str" +%s 2>/dev/null)
+    local epoc_now=$(date +%s)
+    
+    if [[ -z "$epoc_meeting" ]]; then
+        return
+    fi
+    
+    local epoc_diff=$((epoc_meeting - epoc_now))
+    local minutes_till_meeting=$((epoc_diff / 60))
+    
+    if ((minutes_till_meeting > 0)); then
+        echo "$minutes_till_meeting"
+    fi
+}
+
 get_meeting_status() {
     meetings=$(get_all_meetings)
 
@@ -38,6 +64,7 @@ get_meeting_status() {
     local first_meeting_start_epoch=""
     local first_meeting_end_epoch=""
     local overlapping_count=0
+    local next_meeting_minutes=""
 
     while IFS= read -r line; do
         [[ "$line" == "today:" || "$line" == "------------------------" ]] && continue
@@ -54,6 +81,15 @@ get_meeting_status() {
 
             # Process this meeting
             result=$(process_meeting "$time_range" "$title")
+            
+            # Always check for next meeting time for "Free" status
+            if [[ -z "$next_meeting_minutes" ]]; then
+                local temp_minutes=$(get_minutes_to_meeting "$time_range")
+                if [[ -n "$temp_minutes" ]]; then
+                    next_meeting_minutes="$temp_minutes"
+                fi
+            fi
+            
             if [[ -n "$result" ]]; then
                 # Extract the start time from the time range
                 current_start=$(echo "$time_range" | awk -F ' - ' '{print $1}' | sed 's/[[:space:]]/ /g' | xargs)
@@ -95,7 +131,22 @@ get_meeting_status() {
 
     # Check if we have any upcoming meetings
     if [[ ${#upcoming_meetings[@]} -eq 0 ]]; then
-        echo "$FREE_TIME_MESSAGE"
+        local max_minutes=$((MAX_HOURS_TO_SHOW * 60))
+        if [[ -n "$next_meeting_minutes" ]] && ((next_meeting_minutes <= max_minutes)); then
+            if ((next_meeting_minutes >= 60)); then
+                local hours=$((next_meeting_minutes / 60))
+                local mins=$((next_meeting_minutes % 60))
+                if ((mins > 0)); then
+                    echo "$NERD_FONT_FREE  Free - next in ${hours}h ${mins}m  "
+                else
+                    echo "$NERD_FONT_FREE  Free - next in ${hours}h  "
+                fi
+            else
+                echo "$NERD_FONT_FREE  Free - next in ${next_meeting_minutes} min  "
+            fi
+        else
+            echo "$FREE_TIME_MESSAGE"
+        fi
     elif [[ ${#upcoming_meetings[@]} -eq 1 ]]; then
         # Extract just the text part
         echo "$first_meeting" | cut -d'|' -f2-
@@ -118,7 +169,10 @@ process_meeting() {
 
     skip=false
     for pattern in "${EXCLUDE_PATTERNS[@]}"; do
-        if [[ "$title" == $pattern ]]; then
+        # Support both exact match and wildcard patterns (case-insensitive)
+        pattern_lower=$(echo "$pattern" | tr '[:upper:]' '[:lower:]')
+        title_lower=$(echo "$title" | tr '[:upper:]' '[:lower:]')
+        if [[ "$title_lower" == "$pattern_lower" ]] || [[ "$title_lower" == *"$pattern_lower"* ]]; then
             skip=true
             break
         fi
@@ -149,7 +203,8 @@ process_meeting() {
         return
     fi
 
-    if ((minutes_till_meeting > ALERT_IF_IN_NEXT_MINUTES)); then
+    local max_minutes=$((MAX_HOURS_TO_SHOW * 60))
+    if ((minutes_till_meeting > max_minutes)); then
         return
     fi
 
@@ -172,10 +227,17 @@ process_meeting() {
         minutes_late=$(( -minutes_till_meeting ))
         output="$NERD_FONT_MEETING STARTED ${minutes_late}m ago: $title"
         status_color="red"
-    elif ((minutes_till_meeting >= 60)); then
+    elif ((minutes_till_meeting >= 90)); then
         hours=$((minutes_till_meeting / 60))
         mins=$((minutes_till_meeting % 60))
-        output="$NERD_FONT_MEETING ${hours}h ${mins}m - $title"
+        if ((mins > 0)); then
+            output="$NERD_FONT_MEETING ${hours}h ${mins}m - $title"
+        else
+            output="$NERD_FONT_MEETING ${hours}h - $title"
+        fi
+        status_color="blue"
+    elif ((minutes_till_meeting >= 60)); then
+        output="$NERD_FONT_MEETING ${minutes_till_meeting} min - $title"
         status_color="blue"
     elif ((minutes_till_meeting >= 30)); then
         output="$NERD_FONT_MEETING $minutes_till_meeting min - $title"
