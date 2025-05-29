@@ -248,7 +248,7 @@ process_meeting() {
         output="$NERD_FONT_MEETING In $minutes_till_meeting min - $title"
         status_color="red"
     else
-        output="$NERD_FONT_MEETING $title starting soon!"
+        output="$NERD_FONT_MEETING $title in $minutes_till_meeting minutes"
         status_color="red"
     fi
 
