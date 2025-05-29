@@ -1,6 +1,7 @@
 #!/bin/bash
 
 ALERT_IF_IN_NEXT_MINUTES=90
+MAX_HOURS_TO_SHOW=4  # Don't show "next in" if meeting is more than 4 hours away
 NERD_FONT_FREE=""
 NERD_FONT_MEETING=""
 
@@ -121,7 +122,8 @@ get_meeting_status() {
 
     # Check if we have any upcoming meetings
     if [[ ${#upcoming_meetings[@]} -eq 0 ]]; then
-        if [[ -n "$next_meeting_minutes" ]]; then
+        local max_minutes=$((MAX_HOURS_TO_SHOW * 60))
+        if [[ -n "$next_meeting_minutes" ]] && ((next_meeting_minutes <= max_minutes)); then
             if ((next_meeting_minutes >= 60)); then
                 local hours=$((next_meeting_minutes / 60))
                 local mins=$((next_meeting_minutes % 60))
@@ -189,7 +191,8 @@ process_meeting() {
         return
     fi
 
-    if ((minutes_till_meeting > ALERT_IF_IN_NEXT_MINUTES)); then
+    local max_minutes=$((MAX_HOURS_TO_SHOW * 60))
+    if ((minutes_till_meeting > max_minutes)); then
         return
     fi
 
@@ -212,10 +215,17 @@ process_meeting() {
         minutes_late=$(( -minutes_till_meeting ))
         output="$NERD_FONT_MEETING STARTED ${minutes_late}m ago: $title"
         status_color="red"
-    elif ((minutes_till_meeting >= 60)); then
+    elif ((minutes_till_meeting >= 90)); then
         hours=$((minutes_till_meeting / 60))
         mins=$((minutes_till_meeting % 60))
-        output="$NERD_FONT_MEETING ${hours}h ${mins}m - $title"
+        if ((mins > 0)); then
+            output="$NERD_FONT_MEETING ${hours}h ${mins}m - $title"
+        else
+            output="$NERD_FONT_MEETING ${hours}h - $title"
+        fi
+        status_color="blue"
+    elif ((minutes_till_meeting >= 60)); then
+        output="$NERD_FONT_MEETING ${minutes_till_meeting} min - $title"
         status_color="blue"
     elif ((minutes_till_meeting >= 30)); then
         output="$NERD_FONT_MEETING $minutes_till_meeting min - $title"
