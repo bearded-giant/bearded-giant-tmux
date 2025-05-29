@@ -22,6 +22,26 @@ get_all_meetings() {
         eventsToday
 }
 
+get_minutes_to_meeting() {
+    local time_range="$1"
+    local time=$(echo "$time_range" | awk -F ' - ' '{print $1}' | sed 's/[[:space:]]/ /g' | xargs)
+    local today_date=$(date +"%Y-%m-%d")
+    local datetime_str="$today_date $time"
+    local epoc_meeting=$(date -j -f "%Y-%m-%d %l:%M %p" "$datetime_str" +%s 2>/dev/null)
+    local epoc_now=$(date +%s)
+    
+    if [[ -z "$epoc_meeting" ]]; then
+        return
+    fi
+    
+    local epoc_diff=$((epoc_meeting - epoc_now))
+    local minutes_till_meeting=$((epoc_diff / 60))
+    
+    if ((minutes_till_meeting > 0)); then
+        echo "$minutes_till_meeting"
+    fi
+}
+
 get_meeting_status() {
     meetings=$(get_all_meetings)
 
@@ -35,6 +55,7 @@ get_meeting_status() {
     local first_meeting_start_epoch=""
     local first_meeting_end_epoch=""
     local overlapping_count=0
+    local next_meeting_minutes=""
 
     while IFS= read -r line; do
         [[ "$line" == "today:" || "$line" == "------------------------" ]] && continue
@@ -51,6 +72,15 @@ get_meeting_status() {
 
             # Process this meeting
             result=$(process_meeting "$time_range" "$title")
+            
+            # Always check for next meeting time for "Free" status
+            if [[ -z "$next_meeting_minutes" ]]; then
+                local temp_minutes=$(get_minutes_to_meeting "$time_range")
+                if [[ -n "$temp_minutes" ]]; then
+                    next_meeting_minutes="$temp_minutes"
+                fi
+            fi
+            
             if [[ -n "$result" ]]; then
                 upcoming_meetings+=("$result")
                 meeting_times+=("$time_range")
@@ -91,7 +121,21 @@ get_meeting_status() {
 
     # Check if we have any upcoming meetings
     if [[ ${#upcoming_meetings[@]} -eq 0 ]]; then
-        echo "blue|$FREE_TIME_MESSAGE"
+        if [[ -n "$next_meeting_minutes" ]]; then
+            if ((next_meeting_minutes >= 60)); then
+                local hours=$((next_meeting_minutes / 60))
+                local mins=$((next_meeting_minutes % 60))
+                if ((mins > 0)); then
+                    echo "blue|$NERD_FONT_FREE  Free - next in ${hours}h ${mins}m  "
+                else
+                    echo "blue|$NERD_FONT_FREE  Free - next in ${hours}h  "
+                fi
+            else
+                echo "blue|$NERD_FONT_FREE  Free - next in ${next_meeting_minutes} min  "
+            fi
+        else
+            echo "blue|$FREE_TIME_MESSAGE"
+        fi
     elif [[ ${#upcoming_meetings[@]} -eq 1 ]]; then
         echo "$first_meeting"
     else
@@ -237,16 +281,35 @@ show_meetings() {
     local text
     local module
     
+    # Get the current meeting status to determine color
+    local result=$(get_meeting_status)
+    local meeting_color=$(echo "$result" | cut -d'|' -f1)
+    local meeting_text=$(echo "$result" | cut -d'|' -f2-)
+    local meeting_text_trimmed=$(echo "$meeting_text" | xargs)
+    
+    # Set icon based on content
+    if [[ "$meeting_text_trimmed" == *"Free"* ]]; then
+        icon="👍"
+    else
+        icon="📅"
+    fi
+    
+    # Set color based on meeting status
+    case "$meeting_color" in
+    "blue") color="$thm_blue" ;;
+    "yellow") color="$thm_yellow" ;;
+    "orange") color="$thm_orange" ;;
+    "red") color="$thm_red" ;;
+    "purple") color="$thm_purple" ;;
+    *) color="$thm_blue" ;; # fallback
+    esac
+    
     # Create a command that tmux will execute dynamically for the text
     local script_path="${PLUGIN_DIR}/status/meetings-exec.sh"
-    text="#(${script_path})"
-    
-    # For now, use static colors/icons - we'll make this dynamic later
-    icon="📅"
-    color="$thm_blue"
+    text="  #(${script_path})  "
     
     # Build the module with dynamic text
-    module=$(build_status_module "$index" "$icon" "$color" "  $text  ")
+    module=$(build_status_module "$index" "$icon" "$color" "$text")
     
     echo "$module"
 }
