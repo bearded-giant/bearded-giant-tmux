@@ -10,8 +10,11 @@ NERD_FONT_MEETING=""
 
 FREE_TIME_MESSAGE="$NERD_FONT_FREE  Free  "
 
-# Convert BG_EXCLUDE_PATTERNS string to array if it exists
-if [[ -n "$BG_EXCLUDE_PATTERNS" ]]; then
+# Get exclude patterns from tmux config, fallback to environment variable
+TMUX_EXCLUDE_PATTERNS=$(tmux show-option -gqv @bearded_giant_meetings_exclude 2>/dev/null || echo "")
+if [[ -n "$TMUX_EXCLUDE_PATTERNS" ]]; then
+    IFS=',' read -ra EXCLUDE_PATTERNS <<< "$TMUX_EXCLUDE_PATTERNS"
+elif [[ -n "$BG_EXCLUDE_PATTERNS" ]]; then
     IFS=',' read -ra EXCLUDE_PATTERNS <<< "$BG_EXCLUDE_PATTERNS"
 else
     EXCLUDE_PATTERNS=()

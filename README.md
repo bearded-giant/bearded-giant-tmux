@@ -345,10 +345,19 @@ set -g @bearded_giant_status_modules_right "meetings application session"
 
 #### Configuration
 
-Exclude specific meeting patterns:
+Exclude specific meeting patterns by adding to your tmux configuration:
 ```sh
-export BG_EXCLUDE_PATTERNS=("Lunch" "Break" "Personal")
+set -g @bearded_giant_meetings_exclude "Lunch,Break,Personal,*Daily Sync"
 ```
+
+The exclusion list is comma-separated and supports wildcards (*). Patterns are case-insensitive.
+
+Example with multiple exclusions:
+```sh
+set -g @bearded_giant_meetings_exclude "Stand-up - SFCP,*Transactions Daily Sync,Andromedus*,Lunch and Learn,Flows Team *,ME Team Standup"
+```
+
+Note: The module will also check the `BG_EXCLUDE_PATTERNS` environment variable as a fallback, but using the tmux configuration is recommended for reliability.
 
 #### Icons
 
@@ -359,6 +368,26 @@ export BG_EXCLUDE_PATTERNS=("Lunch" "Break" "Personal")
 
 - macOS with icalBuddy installed
 - Access to Calendar app data
+
+#### Technical Architecture
+
+The meetings module uses two scripts for dynamic status updates:
+
+- **`status/meetings.sh`** - Main module script that:
+  - Exports the `show_meetings` function used by the tmux theme
+  - Handles static elements (icon, color) based on meeting urgency
+  - Creates the tmux status module structure
+  - References `meetings-exec.sh` for dynamic text updates via `#()` command substitution
+
+- **`status/meetings-exec.sh`** - Standalone executable that:
+  - Contains duplicate meeting logic (required for independent execution)
+  - Runs every status interval to fetch current meeting text
+  - Outputs only the meeting text without formatting
+  - Executed by tmux dynamically to update the status bar text
+
+This two-file approach allows the status bar to have:
+- Static formatting (colors, separators) that only updates on config reload
+- Dynamic text content that updates every status-interval without full module rebuild
 
 ## Configuration Examples
 
