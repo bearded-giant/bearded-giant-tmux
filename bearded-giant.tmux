@@ -325,6 +325,10 @@ main() {
   setw clock-mode-colour "${thm_blue}"
   setw mode-style "fg=${thm_pink} bg=${thm_black4} bold"
 
+  # --------=== Custom Commands
+  # Add meetings list command
+  tmux_commands+=(bind-key M run-shell "bash ${PLUGIN_DIR}/status/meetings-list.sh" ";")
+
   tmux "${tmux_commands[@]}"
 }
 

@@ -389,6 +389,16 @@ This two-file approach allows the status bar to have:
 - Static formatting (colors, separators) that only updates on config reload
 - Dynamic text content that updates every status-interval without full module rebuild
 
+#### Meetings List Command
+
+The plugin provides a tmux command to list all meetings for the rest of the day:
+
+- Press `prefix + M` (capital M) to display a formatted list of today's meetings
+- Shows meeting times, titles, and time until each meeting
+- Color-coded based on urgency (same as status bar)
+- Respects the exclusion patterns configured in `@bearded_giant_meetings_exclude`
+- Includes meetings currently in progress
+
 ## Configuration Examples
 
 Below are provided a few configurations as examples or starting points.
