@@ -96,7 +96,7 @@ build_window_format() {
   if [ "$fill" = "number" ]
   then
     local show_number="#[fg=$background,bg=$color]$number"
-    local show_middle_separator="#[fg=$color,bg=$background,nobold,nounderscore,noitalics]$window_middle_separator"
+    local show_middle_separator="#[fg=$background,bg=$color] #[fg=$color,bg=$background,nobold,nounderscore,noitalics]$window_middle_separator"
     local show_text="#[fg=$thm_fg,bg=$background]$text"
 
     if [ "$window_number_position" = "right" ]
@@ -295,7 +295,7 @@ main() {
 
   local window_left_separator=$(get_tmux_option "@bearded_giant_window_left_separator" "█")
   local window_right_separator=$(get_tmux_option "@bearded_giant_window_right_separator" "█")
-  local window_middle_separator=$(get_tmux_option "@bearded_giant_window_middle_separator" "█ ")
+  local window_middle_separator=$(get_tmux_option "@bearded_giant_window_middle_separator" "█  ")
   local window_number_position=$(get_tmux_option "@bearded_giant_window_number_position" "left") # right, left
   local window_status_enable=$(get_tmux_option "@bearded_giant_window_status_enable" "no") # right, left
 
