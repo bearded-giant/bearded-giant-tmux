@@ -112,11 +112,11 @@ while true; do
 │ Todo Manager - Daily List                   │
 ├─────────────────────────────────────────────┤
 │ ENTER: Toggle done    s: Start/In-progress │
-│ x: Stop in-progress   r: Refresh           │
-│ q/ESC: Quit                                │
+│ c: Create new todo    x: Stop in-progress  │
+│ r: Refresh           q/ESC: Quit           │
 ╰─────────────────────────────────────────────╯" \
         --prompt="Select todo > " \
-        --expect=enter,s,x,r,q \
+        --expect=enter,s,x,c,r,q \
         --no-sort \
         --height=35 \
         --layout=reverse)
@@ -161,6 +161,99 @@ while true; do
                 update_todo "$TODO_ID" "stop"
                 echo "Stopped: $(jq -r --arg id "$TODO_ID" '.todos[] | select(.id == $id) | .text' "$TODO_LIST_PATH")"
                 sleep 0.5
+            fi
+            ;;
+        "c")
+            # Create new todo
+            echo ""
+            echo "═══════════════════════════════════════════════"
+            echo "Create New Todo (press Enter twice when done)"
+            echo "═══════════════════════════════════════════════"
+            echo ""
+
+            # Collect multi-line input
+            TODO_LINES=""
+            EMPTY_COUNT=0
+
+            while true; do
+                read -r line
+
+                # Check for double enter (two empty lines to finish)
+                if [[ -z "$line" ]]; then
+                    EMPTY_COUNT=$((EMPTY_COUNT + 1))
+                    if [[ $EMPTY_COUNT -ge 2 ]]; then
+                        break
+                    fi
+                    # Add single newline to preserve formatting
+                    TODO_LINES="${TODO_LINES} "
+                else
+                    EMPTY_COUNT=0
+                    if [[ -z "$TODO_LINES" ]]; then
+                        TODO_LINES="$line"
+                    else
+                        TODO_LINES="${TODO_LINES} ${line}"
+                    fi
+                fi
+            done
+
+            # Trim and check if we have text
+            TODO_TEXT=$(echo "$TODO_LINES" | xargs)
+
+            if [[ -n "$TODO_TEXT" ]]; then
+                # Generate unique ID
+                TODO_ID="$(date +%s)_$(( RANDOM * RANDOM % 9999999 ))"
+
+                # Get the highest order_index
+                MAX_ORDER=$(jq '.todos | map(.order_index) | max // 0' "$TODO_LIST_PATH")
+                NEW_ORDER=$((MAX_ORDER + 1))
+
+                # Add the new todo
+                jq --arg id "$TODO_ID" \
+                   --arg text "$TODO_TEXT" \
+                   --arg order "$NEW_ORDER" \
+                   '.todos += [{
+                      id: $id,
+                      text: $text,
+                      done: false,
+                      in_progress: false,
+                      order_index: ($order | tonumber),
+                      timestamp: (now | floor),
+                      "_score": 10
+                   }] |
+                   ._metadata.updated_at = (now | floor)' \
+                   "$TODO_LIST_PATH" > "${TODO_LIST_PATH}.tmp" && mv "${TODO_LIST_PATH}.tmp" "$TODO_LIST_PATH"
+
+                if [[ $? -eq 0 ]]; then
+                    echo ""
+                    echo "✓ Created: $TODO_TEXT"
+
+                    # Ask if should mark as in-progress
+                    echo ""
+                    echo -n "Mark as in-progress? (y/N): "
+                    read -n 1 -r MARK_PROGRESS
+                    echo
+
+                    if [[ "$MARK_PROGRESS" =~ ^[Yy]$ ]]; then
+                        # Clear other in_progress and set this one
+                        jq --arg id "$TODO_ID" '
+                            .todos |= map(
+                                if .id == $id then
+                                    .in_progress = true
+                                else
+                                    .in_progress = false
+                                end
+                            ) |
+                            ._metadata.updated_at = (now | floor)
+                        ' "$TODO_LIST_PATH" > "${TODO_LIST_PATH}.tmp" && mv "${TODO_LIST_PATH}.tmp" "$TODO_LIST_PATH"
+                        echo "▶ Marked as in-progress"
+                    fi
+                else
+                    echo "Error: Failed to create todo"
+                fi
+                sleep 2
+            else
+                echo "No text entered, cancelled"
+                sleep 1
             fi
             ;;
         "r")
