@@ -16,11 +16,19 @@ Without Do-It.nvim installed and a `daily` list created, this tmux integration w
 
 ## Features
 
+### Display Features
 - Shows the current in-progress todo from your Do-It.nvim `daily` list
 - Falls back to the next undone todo if no in-progress item
 - Shows "All done!" when all todos are completed
 - Color-coded status (green for in-progress, yellow for pending, blue for completed)
 - Automatically truncates long todo text to fit in status bar
+
+### Interactive Features (NEW!)
+- **Bidirectional sync** - Update todos from tmux that sync back to Do-It.nvim
+- **Quick view popup** - See all your todos in a tmux popup window
+- **Interactive manager** - Full todo management with fzf integration
+- **Keyboard shortcuts** - Quick actions to toggle, start, and manage todos
+- **Real-time updates** - Changes made in tmux immediately reflect in nvim
 
 ## Setup
 
@@ -39,10 +47,15 @@ Without Do-It.nvim installed and a `daily` list created, this tmux integration w
 2. Create a `daily` todo list in Do-It.nvim (or ensure it exists):
    - Open todos with `:Doit` or `<leader>td`
    - Create or switch to the `daily` list using the list management commands
-3. Ensure you have `jq` installed:
+3. Ensure you have required dependencies installed:
    ```bash
+   # Required for all features
    brew install jq  # macOS
    apt-get install jq  # Ubuntu/Debian
+
+   # Optional for interactive manager
+   brew install fzf  # macOS
+   apt-get install fzf  # Ubuntu/Debian
    ```
 
 ### Configuration
@@ -55,10 +68,70 @@ Without Do-It.nvim installed and a `daily` list created, this tmux integration w
    set -g @bearded_giant_status_modules_right "meetings todo"
    ```
 
-4. Reload tmux configuration:
+4. Add keybindings for interactive todo management (optional):
+   ```bash
+   # Add to your .tmux.conf
+   source-file ~/dev/tmux/bearded-giant-tmux/todo-keybindings.conf
+   ```
+
+   The keybindings use a two-key sequence to avoid conflicts:
+   - **Prefix + d** then **t**: Show todo popup (quick view)
+   - **Prefix + d** then **i**: Open interactive manager (requires fzf)
+   - **Prefix + d** then **x**: Toggle current todo done/undone
+   - **Prefix + d** then **n**: Start next pending todo
+
+   Alternative direct keybindings (no prefix):
+   - **Alt+Shift+T**: Show todo popup
+   - **Alt+Shift+I**: Interactive manager
+   - **Alt+Shift+X**: Toggle todo
+   - **Alt+Shift+N**: Next todo
+
+5. Reload tmux configuration:
    ```bash
    tmux source-file ~/.tmux.conf
    ```
+
+## Usage
+
+### Viewing Todos
+
+Once configured, your current todo appears in the tmux status bar. To view all todos:
+
+1. **Quick View** (Prefix + t): Shows a popup with todo statistics and lists
+2. **Status Bar**: Always displays the current in-progress or next pending todo
+
+### Managing Todos from Tmux
+
+With keybindings configured, you can manage todos without leaving tmux:
+
+#### Using Prefix + d menu (recommended):
+1. **View Todos** (Prefix + d, then t): Show popup with todo statistics
+2. **Toggle Done** (Prefix + d, then x): Mark current todo as done/undone
+3. **Start Next** (Prefix + d, then n): Mark the next pending todo as in-progress
+4. **Interactive Manager** (Prefix + d, then i): Full todo management with fzf
+
+#### Using Alt+Shift shortcuts (alternative):
+1. **Alt+Shift+T**: Quick todo view
+2. **Alt+Shift+X**: Toggle current todo
+3. **Alt+Shift+N**: Start next todo
+4. **Alt+Shift+I**: Interactive manager
+
+#### Interactive Manager Controls:
+- Navigate with arrow keys
+- Press Enter to toggle done status
+- Press 's' to start a todo (mark as in-progress)
+- Press 'x' to stop in-progress status
+- Press 'q' or ESC to exit
+
+### Syncing with Neovim
+
+All changes made in tmux are immediately saved to the Do-It.nvim JSON file, so they're instantly available in Neovim:
+
+1. Make changes in tmux (toggle, start, etc.)
+2. Open Do-It.nvim in Neovim (`:Doit`)
+3. Changes are already there!
+
+Similarly, changes made in Neovim appear in tmux within 5 seconds (tmux status refresh interval).
 
 ## How it Works
 
@@ -71,9 +144,20 @@ It prioritizes todos in this order:
 
 ## Files
 
+### Display Scripts
 - `status/todo.sh` - Main todo module that integrates with the theme
 - `status/todo-exec.sh` - Executable script that fetches the current todo text
-- Both scripts use `jq` to parse the JSON todo list
+
+### Interactive Scripts
+- `status/todo-popup.sh` - Quick view popup showing todo statistics and lists
+- `status/todo-interactive.sh` - Full interactive manager with fzf (create, edit, delete todos)
+- `status/todo-toggle.sh` - Toggle the current todo between done/undone
+- `status/todo-next.sh` - Mark the next pending todo as in-progress
+
+### Configuration
+- `todo-keybindings.conf` - Tmux keybinding configuration for todo management
+
+All scripts use `jq` to parse and update the JSON todo list, ensuring full compatibility with Do-It.nvim.
 
 ## Customization
 
