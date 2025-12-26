@@ -329,6 +329,28 @@ main() {
   # Add meetings list command
   tmux_commands+=(bind-key M run-shell "bash ${PLUGIN_DIR}/status/meetings-list.sh" ";")
 
+  # Window right-click menu with Clone option (MouseUp3 for toggle behavior)
+  tmux unbind -T root MouseDown3Status
+  tmux bind-key -T root MouseUp3Status display-menu \
+    -T "#[align=centre]#{window_index}:#{window_name}" -t = -x W -y W \
+    "Clone" c "run-shell '${PLUGIN_DIR}/window/clone-window.sh'" \
+    "" \
+    "#{?#{>:#{session_windows},1},,-}Swap Left" l "swap-window -t :-1" \
+    "#{?#{>:#{session_windows},1},,-}Swap Right" r "swap-window -t :+1" \
+    "#{?pane_marked_set,,-}Swap Marked" s "swap-window" \
+    "" \
+    "#{?#{>:#{session_windows},1},,-}Move to Start" 0 "move-window -t :0" \
+    "#{?#{>:#{session_windows},1},,-}Move to End" 9 "move-window -t :999" \
+    "#{?#{>:#{session_windows},1},,-}Move to #" g "command-prompt -p 'Move to position:' 'move-window -t :%1'" \
+    "" \
+    "Kill" x "kill-window" \
+    "Respawn" R "respawn-window -k" \
+    "#{?pane_marked,Unmark,Mark}" m "select-pane -m" \
+    "Rename" n "command-prompt -F -I '#W' { rename-window -t '#{window_id}' '%%' }" \
+    "" \
+    "New After" w "new-window -a" \
+    "New At End" e "new-window"
+
   tmux "${tmux_commands[@]}"
 }
 

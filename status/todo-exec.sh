@@ -34,12 +34,14 @@ if [[ -z "$todo_text" ]]; then
     fi
 fi
 
-# Clean and truncate the text
-todo_text=$(echo "$todo_text" | xargs)  # Trim whitespace
+# Clean and truncate the text (safely handle all special characters)
+# Use parameter expansion for trimming instead of echo/sed to avoid backtick issues
+todo_text="${todo_text#"${todo_text%%[![:space:]]*}"}"  # Remove leading whitespace
+todo_text="${todo_text%"${todo_text##*[![:space:]]}"}"  # Remove trailing whitespace
 
 if [[ ${#todo_text} -gt $CHAR_LIMIT ]]; then
     todo_text="${todo_text:0:$CHAR_LIMIT}..."
 fi
 
-# Output with task icon
-echo "$NERD_FONT_TASK $todo_text"
+# Output with task icon using printf to safely handle all special characters
+printf '%s %s\n' "$NERD_FONT_TASK" "$todo_text"
