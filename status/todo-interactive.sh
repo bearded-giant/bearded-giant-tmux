@@ -101,6 +101,17 @@ update_todo() {
                 ._metadata.updated_at = (now | floor)
             ' "$TODO_LIST_PATH" > "${TODO_LIST_PATH}.tmp" && mv "${TODO_LIST_PATH}.tmp" "$TODO_LIST_PATH"
             ;;
+        "revert")
+            jq --arg id "$todo_id" '
+                .todos |= map(
+                    if .id == $id then
+                        .in_progress = false |
+                        .done = false
+                    else . end
+                ) |
+                ._metadata.updated_at = (now | floor)
+            ' "$TODO_LIST_PATH" > "${TODO_LIST_PATH}.tmp" && mv "${TODO_LIST_PATH}.tmp" "$TODO_LIST_PATH"
+            ;;
     esac
 }
 
@@ -113,10 +124,11 @@ while true; do
 ├─────────────────────────────────────────────┤
 │ ENTER: Toggle done    s: Start/In-progress │
 │ c: Create new todo    x: Stop in-progress  │
-│ r: Refresh           q/ESC: Quit           │
+│ X: Revert to pending  r: Refresh           │
+│ q/ESC: Quit                                 │
 ╰─────────────────────────────────────────────╯" \
         --prompt="Select todo > " \
-        --expect=enter,s,x,c,r,q \
+        --expect=enter,s,x,X,c,r,q \
         --no-sort \
         --height=35 \
         --layout=reverse)
@@ -160,6 +172,13 @@ while true; do
             if [[ -n "$TODO_ID" ]]; then
                 update_todo "$TODO_ID" "stop"
                 echo "Stopped: $(jq -r --arg id "$TODO_ID" '.todos[] | select(.id == $id) | .text' "$TODO_LIST_PATH")"
+                sleep 0.5
+            fi
+            ;;
+        "X")
+            if [[ -n "$TODO_ID" ]]; then
+                update_todo "$TODO_ID" "revert"
+                echo "Reverted to pending: $(jq -r --arg id "$TODO_ID" '.todos[] | select(.id == $id) | .text' "$TODO_LIST_PATH")"
                 sleep 0.5
             fi
             ;;
