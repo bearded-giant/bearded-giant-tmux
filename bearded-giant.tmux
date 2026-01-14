@@ -200,6 +200,8 @@ load_modules() {
   local modules_custom_path=$PLUGIN_DIR/custom
   local modules_status_path=$PLUGIN_DIR/status
   local modules_window_path=$PLUGIN_DIR/window
+  # do-it.nvim tmux integration (external plugin)
+  local modules_doit_path="$HOME/dev/lua/do-it.nvim/tmux/status"
 
   local module_index=0;
   local module_name
@@ -218,6 +220,17 @@ load_modules() {
 
     local module_path=$modules_custom_path/$module_name.sh
     source $module_path
+
+    if [ 0 -eq $? ]
+    then
+      loaded_modules="$loaded_modules$( show_$module_name $module_index )"
+      module_index=$module_index+1
+      continue
+    fi
+
+    # check do-it.nvim status modules first for todo integration
+    local module_path=$modules_doit_path/$module_name.sh
+    source $module_path 2>/dev/null
 
     if [ 0 -eq $? ]
     then
@@ -352,6 +365,12 @@ main() {
     "New At End" e "new-window"
 
   tmux "${tmux_commands[@]}"
+
+  # source do-it.nvim tmux integration for todo keybindings
+  local doit_plugin="$HOME/dev/lua/do-it.nvim/tmux/doit.tmux"
+  if [[ -f "$doit_plugin" ]]; then
+    source "$doit_plugin"
+  fi
 }
 
 main "$@"
