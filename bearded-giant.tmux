@@ -200,8 +200,9 @@ load_modules() {
   local modules_custom_path=$PLUGIN_DIR/custom
   local modules_status_path=$PLUGIN_DIR/status
   local modules_window_path=$PLUGIN_DIR/window
-  # external modules from do-it.nvim (TPM installs to ~/.tmux/plugins/)
-  local modules_doit_path="$HOME/.tmux/plugins/do-it.nvim/tmux/status"
+  # external modules from do-it.nvim (TPM may use either plugins path)
+  local modules_doit_path="$HOME/.config/tmux/plugins/do-it.nvim/tmux/status"
+  [[ ! -d "$modules_doit_path" ]] && modules_doit_path="$HOME/.tmux/plugins/do-it.nvim/tmux/status"
 
   local module_index=0;
   local module_name
