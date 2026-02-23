@@ -8,7 +8,7 @@ MAX_HOURS_TO_SHOW=4  # Don't show "next in" if meeting is more than 4 hours away
 NERD_FONT_FREE=""
 NERD_FONT_MEETING=""
 
-FREE_TIME_MESSAGE="$NERD_FONT_FREE  Free  "
+FREE_TIME_MESSAGE="$NERD_FONT_FREE Free"
 
 # Get exclude patterns from tmux config, fallback to environment variable
 TMUX_EXCLUDE_PATTERNS=$(tmux show-option -gqv @bearded_giant_meetings_exclude 2>/dev/null || echo "")
@@ -140,12 +140,12 @@ get_meeting_status() {
                 local hours=$((next_meeting_minutes / 60))
                 local mins=$((next_meeting_minutes % 60))
                 if ((mins > 0)); then
-                    echo "$NERD_FONT_FREE  Free - next in ${hours}h ${mins}m  "
+                    echo "$NERD_FONT_FREE Free ${hours}h${mins}m"
                 else
-                    echo "$NERD_FONT_FREE  Free - next in ${hours}h  "
+                    echo "$NERD_FONT_FREE Free ${hours}h"
                 fi
             else
-                echo "$NERD_FONT_FREE  Free - next in ${next_meeting_minutes} min  "
+                echo "$NERD_FONT_FREE Free ${next_meeting_minutes}m"
             fi
         else
             echo "$FREE_TIME_MESSAGE"
@@ -214,7 +214,7 @@ process_meeting() {
     title=$(echo "$title" | xargs)
     time=$(echo "$time" | xargs)
 
-    char_limit=20
+    char_limit=16
     if [[ ${#title} -gt $char_limit ]]; then
         title="${title:0:$char_limit}..."
     fi
@@ -226,36 +226,37 @@ process_meeting() {
         # Should not reach here due to earlier filter, but just in case
         return
     elif ((minutes_till_meeting < 0)); then
-        # Meeting started within last 5 minutes
-        minutes_late=$(( -minutes_till_meeting ))
-        output="$NERD_FONT_MEETING STARTED ${minutes_late}m ago: $title"
+        output="NOW $title"
         status_color="red"
     elif ((minutes_till_meeting >= 90)); then
         hours=$((minutes_till_meeting / 60))
         mins=$((minutes_till_meeting % 60))
         if ((mins > 0)); then
-            output="$NERD_FONT_MEETING ${hours}h ${mins}m - $title"
+            output="${hours}h${mins}m $title"
         else
-            output="$NERD_FONT_MEETING ${hours}h - $title"
+            output="${hours}h $title"
         fi
         status_color="blue"
     elif ((minutes_till_meeting >= 60)); then
-        output="$NERD_FONT_MEETING ${minutes_till_meeting} min - $title"
-        status_color="blue"
-    elif ((minutes_till_meeting >= 30)); then
-        output="$NERD_FONT_MEETING $minutes_till_meeting min - $title"
+        hours=$((minutes_till_meeting / 60))
+        mins=$((minutes_till_meeting % 60))
+        if ((mins > 0)); then
+            output="${hours}h${mins}m $title"
+        else
+            output="${hours}h $title"
+        fi
         status_color="blue"
     elif ((minutes_till_meeting > 15)); then
-        output="$NERD_FONT_MEETING In $minutes_till_meeting min - $title"
+        output="${minutes_till_meeting}m $title"
         status_color="yellow"
     elif ((minutes_till_meeting > 5)); then
-        output="$NERD_FONT_MEETING In $minutes_till_meeting min - $title"
+        output="${minutes_till_meeting}m $title"
         status_color="orange"
     elif ((minutes_till_meeting > 2)); then
-        output="$NERD_FONT_MEETING In $minutes_till_meeting min - $title"
+        output="${minutes_till_meeting}m $title"
         status_color="red"
     else
-        output="$NERD_FONT_MEETING $title in $minutes_till_meeting minutes"
+        output="NOW $title"
         status_color="red"
     fi
 
