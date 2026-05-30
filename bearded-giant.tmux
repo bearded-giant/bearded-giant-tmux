@@ -300,10 +300,6 @@ main() {
   set pane-border-style "fg=${thm_gray}"
   set pane-active-border-style "fg=${thm_purple}"
 
-  # dim inactive pane backgrounds (pairs with dim-inactive-panes tmux patch)
-  set window-active-style "bg=${thm_bg}"
-  set window-style "bg=${thm_bg_dim}"
-
   # windows
   setw window-status-activity-style "fg=${thm_fg},bg=${thm_bg},none"
   setw window-status-separator ""
