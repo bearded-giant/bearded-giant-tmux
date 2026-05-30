@@ -301,7 +301,8 @@ main() {
   set pane-active-border-style "fg=${thm_purple}"
 
   # dim inactive pane backgrounds (pairs with dim-inactive-panes tmux patch)
-  set window-active-style "bg=${thm_bg}"
+  # active keeps the terminal bg; only inactive panes darken
+  set window-active-style "bg=default"
   set window-style "bg=${thm_bg_dim}"
 
   # windows
