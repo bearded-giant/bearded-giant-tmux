@@ -17,6 +17,20 @@ RESET="\033[0m"
 today_date=$(date +"%Y-%m-%d")
 epoc_now=$(date +%s)
 
+TMUX_EXCLUDE_PATTERNS=$(tmux show-option -gqv @bearded_giant_meetings_exclude 2>/dev/null || echo "")
+IFS=',' read -ra EXCLUDE_PATTERNS <<< "$TMUX_EXCLUDE_PATTERNS"
+
+# excluded events still show (dimmed), but never win the ◆ next-up marker --
+# next-up must match what the status bar considers upcoming
+is_excluded() {
+  local tl=${1,,} p pl
+  for p in "${EXCLUDE_PATTERNS[@]}"; do
+    pl=${p,,}
+    [[ -n "$pl" && ( "$tl" == "$pl" || "$tl" == *"$pl"* ) ]] && return 0
+  done
+  return 1
+}
+
 to_epoch() {
   local t
   t=$(echo "$1" | sed 's/[[:space:]]/ /g' | xargs)
@@ -60,6 +74,7 @@ render() {
 
     ((${#title} > 30)) && title="${title:0:29}…"
     mark=" "
+    local excluded=0; is_excluded "$title" && excluded=1
 
     if [[ -n "$end_e" && $end_e -le $epoc_now ]]; then
       color="$DIM"; tag="done"
@@ -75,7 +90,12 @@ render() {
         ((m > 0)) && t="in ${h}h ${m}m" || t="in ${h}h"
       else t="in ${mins}m"; fi
       tag="$t"
-      ((next_shown == 0)) && { mark="◆"; next_shown=1; }
+    fi
+
+    if ((excluded)); then
+      color="$DIM"; mark=" "
+    elif [[ $start_e -gt $epoc_now && $next_shown -eq 0 ]]; then
+      mark="◆"; next_shown=1
     fi
 
     printf "  ${color}%s %-8s → %-8s  %-30s %s${RESET}\n" "$mark" "$start" "$end" "$title" "$tag"
@@ -86,7 +106,7 @@ render() {
   if ((count == 0)); then
     printf "  ${DIM}No events today 🎉${RESET}\n"
   else
-    printf "  ${DIM}%d events · ◆ next up · q / Esc to close${RESET}\n" "$count"
+    printf "  ${DIM}%d events · ◆ next up · dim = excluded · q/Esc${RESET}\n" "$count"
   fi
 }
 
