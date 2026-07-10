@@ -37,7 +37,7 @@ meetings=$(icalBuddy \
 render() {
   printf "  ${BOLD}%s${RESET}   ${DIM}now %s${RESET}\n" \
     "$(date +"Today · %a %b %d")" "$(date +"%-I:%M %p")"
-  printf "  ${DIM}────────────────────────────────────────────────────${RESET}\n"
+  printf "  ${DIM}──────────────────────────────────────────────────────────────${RESET}\n"
 
   local time_range="" count=0 next_shown=0
   while IFS= read -r line; do
@@ -49,7 +49,7 @@ render() {
       continue
     fi
 
-    local title start end start_e end_e color tag
+    local title start end start_e end_e color tag mark
     title=$(echo "$line" | sed 's/^[[:space:]]*//' | xargs)
     start=$(echo "$time_range" | awk -F ' - ' '{print $1}' | sed 's/[[:space:]]/ /g' | xargs)
     end=$(echo "$time_range" | awk -F ' - ' '{print $2}' | sed 's/[[:space:]]/ /g' | xargs)
@@ -58,14 +58,13 @@ render() {
     time_range=""
     [[ -z "$start_e" ]] && continue
 
-    ((${#title} > 32)) && title="${title:0:31}…"
+    ((${#title} > 30)) && title="${title:0:29}…"
+    mark=" "
 
     if [[ -n "$end_e" && $end_e -le $epoc_now ]]; then
       color="$DIM"; tag="done"
-    elif [[ -n "$end_e" && $start_e -le $epoc_now && $epoc_now -lt $end_e ]]; then
-      color="$GREEN"; tag="● now"
     elif [[ $start_e -le $epoc_now ]]; then
-      color="$GREEN"; tag="● now"
+      color="$GREEN"; mark="●"; tag="now"
     else
       local mins=$(((start_e - epoc_now) / 60)) t
       if ((mins < 5)); then color="$RED"
@@ -75,23 +74,28 @@ render() {
         local h=$((mins / 60)) m=$((mins % 60))
         ((m > 0)) && t="in ${h}h ${m}m" || t="in ${h}h"
       else t="in ${mins}m"; fi
-      if ((next_shown == 0)); then tag="◆ $t"; next_shown=1; else tag="$t"; fi
+      tag="$t"
+      ((next_shown == 0)) && { mark="◆"; next_shown=1; }
     fi
 
-    printf "  ${color}%-8s → %-8s  %-33s %s${RESET}\n" "$start" "$end" "$title" "$tag"
+    printf "  ${color}%s %-8s → %-8s  %-30s %s${RESET}\n" "$mark" "$start" "$end" "$title" "$tag"
     ((count++))
   done <<<"$meetings"
 
-  printf "  ${DIM}────────────────────────────────────────────────────${RESET}\n"
+  printf "  ${DIM}──────────────────────────────────────────────────────────────${RESET}\n"
   if ((count == 0)); then
     printf "  ${DIM}No events today 🎉${RESET}\n"
   else
-    printf "  ${DIM}%d events · ◆ next up · q to close${RESET}\n" "$count"
+    printf "  ${DIM}%d events · ◆ next up · q / Esc to close${RESET}\n" "$count"
   fi
 }
 
 if [[ -t 1 ]]; then
-  render | less -R
+  # ponytail: no scroll -- days fit the popup; add a pager if they stop fitting
+  render
+  while IFS= read -rsn1 key; do
+    [[ "$key" == "q" || "$key" == $'\e' ]] && break
+  done
 else
   render
 fi
