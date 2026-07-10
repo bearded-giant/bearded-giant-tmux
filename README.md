@@ -389,15 +389,18 @@ This two-file approach allows the status bar to have:
 - Static formatting (colors, separators) that only updates on config reload
 - Dynamic text content that updates every status-interval without full module rebuild
 
-#### Meetings List Command
+#### Day Agenda Popup
 
-The plugin provides a tmux command to list all meetings for the rest of the day:
+`status/meetings-list.sh` renders your whole day: past events dimmed, whatever's in progress flagged green, and upcoming meetings color-coded with a countdown (the next one marked with a `◆`). Overlapping meetings each get their own line, so nothing hides behind a "+2 more". It deliberately ignores `@bearded_giant_meetings_exclude` and shows everything — the status bar still honors those exclusions, the popup doesn't.
 
-- Press `prefix + M` (capital M) to display a formatted list of today's meetings
-- Shows meeting times, titles, and time until each meeting
-- Color-coded based on urgency (same as status bar)
-- Respects the exclusion patterns configured in `@bearded_giant_meetings_exclude`
-- Includes meetings currently in progress
+The plugin doesn't bind a key for this, so wire it up however you like. A popup on `prefix + M` works well:
+
+```sh
+bind -T prefix M display-popup -E -w 64 -h 24 \
+  "$HOME/.config/tmux/plugins/bearded-giant-tmux/status/meetings-list.sh"
+```
+
+Open with `prefix + M`, press `q` to close.
 
 ## Configuration Examples
 
