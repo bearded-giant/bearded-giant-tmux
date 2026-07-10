@@ -1,16 +1,11 @@
 #!/bin/bash
 
-# This is a standalone executable version of the meetings module
-# It outputs pre-formatted text that tmux can display directly
+# Standalone status-bar text: the next upcoming meeting, or "Free".
+# Full day lives in the prefix+M popup (meetings-list.sh).
 
-ALERT_IF_IN_NEXT_MINUTES=90
-MAX_HOURS_TO_SHOW=4  # Don't show "next in" if meeting is more than 4 hours away
 NERD_FONT_FREE=""
-NERD_FONT_MEETING=""
-
 FREE_TIME_MESSAGE="$NERD_FONT_FREE Free"
 
-# Get exclude patterns from tmux config, fallback to environment variable
 TMUX_EXCLUDE_PATTERNS=$(tmux show-option -gqv @bearded_giant_meetings_exclude 2>/dev/null || echo "")
 if [[ -n "$TMUX_EXCLUDE_PATTERNS" ]]; then
     IFS=',' read -ra EXCLUDE_PATTERNS <<< "$TMUX_EXCLUDE_PATTERNS"
@@ -34,136 +29,25 @@ get_all_meetings() {
         eventsToday
 }
 
-get_minutes_to_meeting() {
-    local time_range="$1"
-    local time=$(echo "$time_range" | awk -F ' - ' '{print $1}' | sed 's/[[:space:]]/ /g' | xargs)
-    local today_date=$(date +"%Y-%m-%d")
-    local datetime_str="$today_date $time"
-    local epoc_meeting=$(date -j -f "%Y-%m-%d %l:%M %p" "$datetime_str" +%s 2>/dev/null)
-    local epoc_now=$(date +%s)
-    
-    if [[ -z "$epoc_meeting" ]]; then
-        return
-    fi
-    
-    local epoc_diff=$((epoc_meeting - epoc_now))
-    local minutes_till_meeting=$((epoc_diff / 60))
-    
-    if ((minutes_till_meeting > 0)); then
-        echo "$minutes_till_meeting"
-    fi
-}
-
 get_meeting_status() {
+    local meetings time_range="" title result
     meetings=$(get_all_meetings)
-
-    # Parse meetings - format is: time_range on one line, then title (indented) on next line
-    time_range=""
-    local upcoming_meetings=()
-    local meeting_times=()
-    local first_meeting=""
-    local first_meeting_start=""
-    local first_meeting_end=""
-    local first_meeting_start_epoch=""
-    local first_meeting_end_epoch=""
-    local overlapping_count=0
-    local next_meeting_minutes=""
-
     while IFS= read -r line; do
         [[ "$line" == "today:" || "$line" == "------------------------" ]] && continue
-
         if [[ -z "$time_range" ]]; then
-            # This should be a time range line (not indented)
-            if [[ "$line" =~ ^[[:space:]] ]]; then
-                continue # Skip if this line starts with whitespace (shouldn't happen for time)
-            fi
+            [[ "$line" =~ ^[[:space:]] ]] && continue
             time_range="$line"
         else
-            # This should be a title line (indented)
-            title=$(echo "$line" | sed 's/^[[:space:]]*//') # Remove leading whitespace
-
-            # Process this meeting
+            title=$(echo "$line" | sed 's/^[[:space:]]*//')
             result=$(process_meeting "$time_range" "$title")
-            
-            # Always check for next meeting time for "Free" status
-            if [[ -z "$next_meeting_minutes" ]]; then
-                local temp_minutes=$(get_minutes_to_meeting "$time_range")
-                if [[ -n "$temp_minutes" ]]; then
-                    next_meeting_minutes="$temp_minutes"
-                fi
-            fi
-            
-            if [[ -n "$result" ]]; then
-                # Extract the start time from the time range
-                current_start=$(echo "$time_range" | awk -F ' - ' '{print $1}' | sed 's/[[:space:]]/ /g' | xargs)
-                current_end=$(echo "$time_range" | awk -F ' - ' '{print $2}' | sed 's/[[:space:]]/ /g' | xargs)
-                
-                upcoming_meetings+=("$result")
-                meeting_times+=("$time_range")
-                
-                if [[ -z "$first_meeting" ]]; then
-                    first_meeting="$result"
-                    first_meeting_start="$current_start"
-                    first_meeting_end="$current_end"
-                    
-                    # Convert to epoch for overlap checking
-                    today_date=$(date +"%Y-%m-%d")
-                    first_meeting_start_epoch=$(date -j -f "%Y-%m-%d %l:%M %p" "$today_date $first_meeting_start" +%s 2>/dev/null)
-                    first_meeting_end_epoch=$(date -j -f "%Y-%m-%d %l:%M %p" "$today_date $first_meeting_end" +%s 2>/dev/null)
-                else
-                    # Check if this meeting overlaps with the first one
-                    # Convert to epoch for comparison
-                    current_start_epoch=$(date -j -f "%Y-%m-%d %l:%M %p" "$today_date $current_start" +%s 2>/dev/null)
-                    current_end_epoch=$(date -j -f "%Y-%m-%d %l:%M %p" "$today_date $current_end" +%s 2>/dev/null)
-                    
-                    # Check for actual overlap: start1 < end2 AND start2 < end1
-                    if [[ -n "$current_start_epoch" && -n "$current_end_epoch" && 
-                          -n "$first_meeting_start_epoch" && -n "$first_meeting_end_epoch" ]]; then
-                        if [[ $first_meeting_start_epoch -lt $current_end_epoch && 
-                              $current_start_epoch -lt $first_meeting_end_epoch ]]; then
-                            overlapping_count=$((overlapping_count + 1))
-                        fi
-                    fi
-                fi
-            fi
-
-            # Reset for next meeting
             time_range=""
+            if [[ -n "$result" ]]; then
+                echo "$result" | cut -d'|' -f2-
+                return
+            fi
         fi
     done <<<"$meetings"
-
-    # Check if we have any upcoming meetings
-    if [[ ${#upcoming_meetings[@]} -eq 0 ]]; then
-        local max_minutes=$((MAX_HOURS_TO_SHOW * 60))
-        if [[ -n "$next_meeting_minutes" ]] && ((next_meeting_minutes <= max_minutes)); then
-            if ((next_meeting_minutes >= 60)); then
-                local hours=$((next_meeting_minutes / 60))
-                local mins=$((next_meeting_minutes % 60))
-                if ((mins > 0)); then
-                    echo "$NERD_FONT_FREE Free ${hours}h${mins}m"
-                else
-                    echo "$NERD_FONT_FREE Free ${hours}h"
-                fi
-            else
-                echo "$NERD_FONT_FREE Free ${next_meeting_minutes}m"
-            fi
-        else
-            echo "$FREE_TIME_MESSAGE"
-        fi
-    elif [[ ${#upcoming_meetings[@]} -eq 1 ]]; then
-        # Extract just the text part
-        echo "$first_meeting" | cut -d'|' -f2-
-    else
-        # Multiple meetings - show count
-        meeting_text=$(echo "$first_meeting" | cut -d'|' -f2-)
-        
-        if [[ $overlapping_count -gt 0 ]]; then
-            echo "${meeting_text} (+${overlapping_count} overlap)"
-        else
-            # Show total count of additional meetings
-            echo "${meeting_text} (+$((${#upcoming_meetings[@]} - 1)) more)"
-        fi
-    fi
+    echo "$FREE_TIME_MESSAGE"
 }
 
 process_meeting() {
@@ -172,7 +56,6 @@ process_meeting() {
 
     skip=false
     for pattern in "${EXCLUDE_PATTERNS[@]}"; do
-        # Support both exact match and wildcard patterns (case-insensitive)
         pattern_lower=$(echo "$pattern" | tr '[:upper:]' '[:lower:]')
         title_lower=$(echo "$title" | tr '[:upper:]' '[:lower:]')
         if [[ "$title_lower" == "$pattern_lower" ]] || [[ "$title_lower" == *"$pattern_lower"* ]]; then
@@ -183,12 +66,8 @@ process_meeting() {
     $skip && return
 
     time=$(echo "$time_range" | awk -F ' - ' '{print $1}')
-    # end_time=$(echo "$time_range" | awk -F ' - ' '{print $2}')
-
-    # Clean the time string - remove non-breaking spaces and other unicode characters
     time=$(echo "$time" | sed 's/[[:space:]]/ /g' | xargs)
 
-    # Get today's date and combine with time for parsing
     today_date=$(date +"%Y-%m-%d")
     datetime_str="$today_date $time"
     epoc_meeting=$(date -j -f "%Y-%m-%d %l:%M %p" "$datetime_str" +%s 2>/dev/null)
@@ -200,68 +79,35 @@ process_meeting() {
 
     epoc_diff=$((epoc_meeting - epoc_now))
     minutes_till_meeting=$((epoc_diff / 60))
-    
-    # Include meetings that started up to 5 minutes ago
-    if ((epoc_diff < -300)); then  # More than 5 minutes past start
-        return
-    fi
 
-    local max_minutes=$((MAX_HOURS_TO_SHOW * 60))
-    if ((minutes_till_meeting > max_minutes)); then
+    # skip meetings that started more than 5 minutes ago
+    if ((epoc_diff < -300)); then
         return
     fi
 
     title=$(echo "$title" | xargs)
-    time=$(echo "$time" | xargs)
 
     char_limit=16
     if [[ ${#title} -gt $char_limit ]]; then
         title="${title:0:$char_limit}..."
     fi
 
-    # Default
     status_color="blue"
-
-    if ((minutes_till_meeting < -5)); then
-        # Should not reach here due to earlier filter, but just in case
-        return
-    elif ((minutes_till_meeting < 0)); then
-        output="NOW $title"
-        status_color="red"
-    elif ((minutes_till_meeting >= 90)); then
-        hours=$((minutes_till_meeting / 60))
-        mins=$((minutes_till_meeting % 60))
-        if ((mins > 0)); then
-            output="${hours}h${mins}m $title"
-        else
-            output="${hours}h $title"
-        fi
-        status_color="blue"
+    if ((minutes_till_meeting < 0)); then
+        output="NOW $title"; status_color="red"
     elif ((minutes_till_meeting >= 60)); then
         hours=$((minutes_till_meeting / 60))
         mins=$((minutes_till_meeting % 60))
-        if ((mins > 0)); then
-            output="${hours}h${mins}m $title"
-        else
-            output="${hours}h $title"
-        fi
-        status_color="blue"
+        ((mins > 0)) && output="${hours}h${mins}m $title" || output="${hours}h $title"
     elif ((minutes_till_meeting > 15)); then
-        output="${minutes_till_meeting}m $title"
-        status_color="yellow"
+        output="${minutes_till_meeting}m $title"; status_color="yellow"
     elif ((minutes_till_meeting > 5)); then
-        output="${minutes_till_meeting}m $title"
-        status_color="orange"
-    elif ((minutes_till_meeting > 2)); then
-        output="${minutes_till_meeting}m $title"
-        status_color="red"
+        output="${minutes_till_meeting}m $title"; status_color="orange"
     else
-        output="NOW $title"
-        status_color="red"
+        output="${minutes_till_meeting}m $title"; status_color="red"
     fi
 
     echo "${status_color}|${output}"
 }
 
-# Execute and output just the text
 get_meeting_status
