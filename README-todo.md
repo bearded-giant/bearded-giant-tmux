@@ -6,16 +6,16 @@ Bearded Giant can show your current [Do-It.nvim](https://github.com/bearded-gian
 
 Do-It.nvim ships a tmux plugin with a status module (`tmux/status/todo.sh`) and the scripts behind it (`tmux/scripts/`). When `todo` appears in your status modules, the theme's module loader looks in `custom/` first, then in the installed Do-It.nvim plugin (`~/.config/tmux/plugins/do-it.nvim/tmux/status` or `~/.tmux/plugins/do-it.nvim/tmux/status`), then in this theme's own `status/` and `window/` directories. The first hit wins, so the Do-It.nvim module is what renders. Nothing todo-related lives in this repo.
 
-Each tmux session can be linked to its own list. The chip resolves the list per session: an explicit `DOIT_ACTIVE_LIST` environment variable wins, then the session's link, then `daily`. A session with no link always shows `daily`, and that list is created on first use if it is missing. Link a session from the Do-It.nvim list switcher (`prefix + d, l`), the list manager (`prefix + d, L`), from Neovim, or through the MCP server.
+Each tmux window can be linked to its own list, so worktrees opened as windows of one session keep separate todos. The chip resolves the list per window: an explicit `DOIT_ACTIVE_LIST` environment variable wins, then the window's link, then `daily`. A window with no link always shows `daily`, and that list is created on first use if it is missing. The link lives on the window as a tmux option, so it survives renaming or moving the window, and Do-It.nvim saves a copy by `<session>:<window>` name that comes back after a tmux restart. Link a window from the Do-It.nvim list switcher (`prefix + d, l`), the list manager (`prefix + d, L`), from Neovim, or through the MCP server.
 
 ## What you see
 
 | State | Chip text |
 |---|---|
-| A todo is in progress on the session's list | `<list>: <todo>`, the todo text cut at 25 characters, colored by priority |
-| Nothing in progress | `<list>: no active` in the idle color |
+| A todo is in progress on the window's list | `<session>:<window>: <todo>`, the todo text cut at 25 characters, colored by priority |
+| Nothing in progress | `<session>:<window>: no active` in the idle color |
 
-The list name is cut at 10 characters with an ellipsis; change that with `set -g @doit-list-chars "N"`.
+The `<session>:<window>` label is shown whole; cap it with `set -g @doit-list-chars "N"`. Widen or narrow the todo text with `set -g @doit-todo-chars "N"`.
 
 ## Setup
 
@@ -35,8 +35,6 @@ Keybindings (`prefix + d` followed by a key, or the `Alt+Shift` shortcuts) are d
 ## Troubleshooting
 
 1. Confirm the theme found the Do-It.nvim scripts: `tmux showenv -g DOIT_SCRIPTS_DIR` should print the plugin's `tmux/scripts` path.
-2. Run the chip script by hand for a session: `~/.config/tmux/plugins/do-it.nvim/tmux/scripts/todo-exec.sh '<session name>'`. It prints exactly what the status bar would show for that session.
-3. Check the link map under the `sessions` key in `~/.local/share/nvim/doit/session.json` and the list files in `~/.local/share/nvim/doit/lists/`.
+2. Run the chip script by hand for a window: `~/.config/tmux/plugins/do-it.nvim/tmux/scripts/todo-exec.sh '<session>:<window>'`. It prints exactly what the status bar would show for that window.
+3. Check the link map under the `sessions` key in `~/.local/share/nvim/doit/session.json` (keys are `<session>:<window>`) and the list files in `~/.local/share/nvim/doit/lists/`.
 4. Check `which jq`.
-
-The character limit is `CHAR_LIMIT` in Do-It.nvim's `tmux/scripts/todo-exec.sh`.
