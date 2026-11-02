@@ -23,9 +23,10 @@ IFS=',' read -ra EXCLUDE_PATTERNS <<< "$TMUX_EXCLUDE_PATTERNS"
 # excluded events still show (dimmed), but never win the ◆ next-up marker --
 # next-up must match what the status bar considers upcoming
 is_excluded() {
-  local tl=${1,,} p pl
+  local tl p pl
+  tl=$(tr '[:upper:]' '[:lower:]' <<<"$1")
   for p in "${EXCLUDE_PATTERNS[@]}"; do
-    pl=${p,,}
+    pl=$(tr '[:upper:]' '[:lower:]' <<<"$p")
     [[ -n "$pl" && ( "$tl" == "$pl" || "$tl" == *"$pl"* ) ]] && return 0
   done
   return 1
