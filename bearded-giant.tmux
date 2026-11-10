@@ -200,9 +200,11 @@ load_modules() {
   local modules_custom_path=$PLUGIN_DIR/custom
   local modules_status_path=$PLUGIN_DIR/status
   local modules_window_path=$PLUGIN_DIR/window
-  # external modules from do-it.nvim (TPM may use either plugins path)
-  local modules_doit_path="$HOME/.config/tmux/plugins/do-it.nvim/tmux/status"
-  [[ ! -d "$modules_doit_path" ]] && modules_doit_path="$HOME/.tmux/plugins/do-it.nvim/tmux/status"
+  # external modules from doit; TPM may use either plugins path, and clones from before the repo rename are named do-it.nvim
+  local modules_doit_path
+  for modules_doit_path in "$HOME"/{.config/tmux,.tmux}/plugins/{doit,do-it.nvim}/tmux/status; do
+    [[ -d "$modules_doit_path" ]] && break
+  done
 
   local module_index=0;
   local module_name
@@ -229,7 +231,7 @@ load_modules() {
       continue
     fi
 
-    # check do-it.nvim for todo module
+    # check doit for todo module
     local module_path=$modules_doit_path/$module_name.sh
     source $module_path 2>/dev/null
 
